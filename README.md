@@ -17,7 +17,11 @@ Hook up to Azure-Functions and it will be run daily at midnight UTC.
 *PreReq* Sign up for notion. Get an API Key. Create a page which is a basic DB. Grab your key and DB id.  Sign up for an OPENAI API account.  Grab API Key and Organization ID.  
   
 Prompt Customization:  
-Customize your prompt in the main.py files.  Be careful not to change the prompt too much other than the content of the blog post being asked.  The script looks for certain keywords in the open ai response.
+Customize your prompt in the main.py files.  
+Be careful not to change the prompt too much other than the content of the blog post being asked.  
+The script looks for certain keywords in the open ai response.
+  
+Modify the default description in main.py  
   
 *main.py* Duplicate of *TriggerIngestion/main.py* which prints to the screen rather than logs.  Use main.py for testing locally while TriggerIngestion/main.py will be run on azure.  
   
