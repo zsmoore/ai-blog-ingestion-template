@@ -23,7 +23,7 @@ Do not include media.
 Provide this information for me in json.
 '''
 
-DESCRIPTION = "On this day in history"
+DESCRIPTION = "Placeholder"
 
 RETRY_COUNT = 5
 
