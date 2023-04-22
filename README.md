@@ -19,4 +19,13 @@ Hook up to Azure-Functions and it will be run daily at midnight UTC.
 Prompt Customization:  
 Customize your prompt in the main.py files.  Be careful not to change the prompt too much other than the content of the blog post being asked.  The script looks for certain keywords in the open ai response.
   
-*main.py* Duplicate of *TriggerIngestion/main.py* which prints to the screen rather than logs.  Use main.py for testing locally while TriggerIngestion/main.py will be run on azure.
+*main.py* Duplicate of *TriggerIngestion/main.py* which prints to the screen rather than logs.  Use main.py for testing locally while TriggerIngestion/main.py will be run on azure.  
+  
+## Notion DB Format  
+For your notion DB you need the following properties
+- `Name` - title of blog post - rich text
+- `Tags` - seo tags - multi select
+- `Slug` - URL slug - rick text
+- `Date` - Publish date - Date
+- `Published` - Whether or not to show the blog - Checkbox
+- `Description` - Description of blog post - rich text
