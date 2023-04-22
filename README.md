@@ -33,3 +33,5 @@ For your notion DB you need the following properties
 - `Date` - Publish date - Date
 - `Published` - Whether or not to show the blog - Checkbox
 - `Description` - Description of blog post - rich text
+
+Make sure to add the connection to your notion api settings for your db page.
