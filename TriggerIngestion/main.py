@@ -6,11 +6,15 @@ from datetime import date
 import openai
 from dotenv import load_dotenv
 from notion import NotionClient
+from google_images_search import GoogleImagesSearch
+from pydantic import ValidationError
 
 OPENAI_API_KEY = 'OPENAI_API_KEY'
 OPENAI_ORGANIZATION_ID = 'OPENAI_ORGANIZATION_ID'
 NOTION_TOKEN = 'NOTION_TOKEN'
 DATABASE_ID = 'DATABASE_ID'
+GCS_DEVELOPER_KEY = 'GCS_DEVELOPER_KEY'
+GCS_CX = 'GCS_CX'
 
 MODEL = 'gpt-3.5-turbo'
 WORD_COUNT = 3000
@@ -27,7 +31,7 @@ DESCRIPTION = "Placeholder"
 
 RETRY_COUNT = 5
 
-CONTENT_NAMES = ['content', 'blog_post', 'post', 'Blog_post', 'blogPost']
+CONTENT_NAMES = ['content', 'blog_post', 'post', 'Blog_post', 'blogPost', 'article', 'body']
 SEO_TAG_NAMES = ['seo_tags', 'tags', 'SEO_tags', 'seoTags', 'SEOTags']
 URL_SLUG_NAMES = ['url_slug', 'slug', 'URL_slug', 'seoFriendlySlug', 'URLslug']
 TITLE_NAMES = ['title', 'blog_post_title', 'Title', 'blogTitle']
@@ -81,7 +85,7 @@ def try_parse_response(resp):
         content = json.JSONDecoder(strict=False).decode(content)
 
         blog_content = try_find_content(content, CONTENT_NAMES)
-        tags = try_find_content(content, SEO_TAG_NAMES)
+        tags = map(lambda x: x.replace(',', ''), try_find_content(content, SEO_TAG_NAMES))
         slug = try_find_content(content, URL_SLUG_NAMES)
         title = try_find_content(content, TITLE_NAMES)
         should_throw = any(x is None for x in [blog_content, tags, slug, title])
@@ -99,6 +103,17 @@ def try_parse_response(resp):
         logging.error('Failed to parse response')
         logging.error(resp)
         return None
+
+
+def get_image_url(gcs_api_key, gcs_cx, title):
+    gis = GoogleImagesSearch(gcs_api_key, gcs_cx)
+    params = {
+        'q': title,
+        'num': 1,
+    }
+    gis.search(search_params=params)
+    for image in gis.results():
+        return image.url
 
 
 def update_created_page_properties(notion_client, page_id, properties):
@@ -145,7 +160,7 @@ def chunk_content(content):
     }, split)
 
 
-def build_page_children(title, content):
+def build_page_children(title, content, image_url):
     paragraphs = [
         {
             'object': 'block',
@@ -179,11 +194,21 @@ def build_page_children(title, content):
                 ]
             }
         },
+        {
+            'object': 'block',
+            'type': 'image',
+            'image': {
+                'type': 'external',
+                'external': {
+                    'url': image_url
+                }
+            }
+        },
         *paragraphs
     ]
 
 
-def build_page_properties(tags, slug, date, description):
+def build_page_properties(tags, slug, date, description, image_url):
     tag_array = []
     for tag in tags:
         tag_array.append({
@@ -218,6 +243,17 @@ def build_page_properties(tags, slug, date, description):
             'date': {
                 'start': date
             }
+        },
+        'Cover': {
+            'files': [
+                {
+                    'type': 'external',
+                    'name': 'cover image',
+                    'external': {
+                        'url': image_url
+                    }
+                }
+            ]
         }
     }
 
@@ -229,6 +265,8 @@ def main():
     openai_organization_id = os.getenv(OPENAI_ORGANIZATION_ID)
     notion_token = os.getenv(NOTION_TOKEN)
     database_id = os.getenv(DATABASE_ID)
+    gcs_api_key = os.getenv(GCS_DEVELOPER_KEY)
+    gcs_cx = os.getenv(GCS_CX)
 
     initialize_openai(openai_api_key, openai_organization_id)
     prompt = PROMPT.format(date.today().strftime('%b %d'), WORD_COUNT)
@@ -244,15 +282,23 @@ def main():
     slug = resp[URL_SLUG]
     content = resp[CONTENT]
 
+    logging.info('Fetching image')
+    image_url = get_image_url(gcs_api_key, gcs_cx, title)
+    logging.info('image found {0}'.format(image_url))
+
     notion_client = initialize_client(notion_token)
     page_resp = create_new_page(notion_client, database_id, build_new_page_content(title),
-                                build_page_children(title, content))
+                                build_page_children(title, content, image_url))
     page_id = page_resp.id
     logging.info('page created with ID {0}'.format(page_id))
 
-    update_created_page_properties(notion_client, page_id, build_page_properties(tags, slug,
-                                                                                 date.today().isoformat(),
-                                                                                 DESCRIPTION))
+    try:
+        update_created_page_properties(notion_client, page_id, build_page_properties(tags, slug,
+                                                                                     date.today().isoformat(),
+                                                                                     DESCRIPTION, image_url))
+    except ValidationError:
+        logging.info('Expected validation error from notion sdk.')
+
     logging.info('page updated')
     logging.info('finished')
 
